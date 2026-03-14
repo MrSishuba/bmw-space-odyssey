@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Space Rover — Hand Steering</title>
+
+  <!-- Three.js via import map (CDN) -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.172.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.172.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <!-- MediaPipe Tasks Vision (Hand Landmarker) -->
+  <!-- CDN approach is documented by Google AI Edge for web usage -->
+ 
+
+  <link rel="stylesheet" href="./style.css" />
+</head>
+
+<body>
+  <div id="ui">
+    <div class="row">
+      <div class="title">SPACE ROVER — HAND STEERING</div>
+      <div id="status" class="pill">Loading…</div>
+    </div>
+
+    <div class="row">
+      <button id="btnStart">Start</button>
+      <button id="btnCalibrate">Calibrate</button>
+      <label class="toggle">
+        <input id="chkDebug" type="checkbox" />
+        <span>Show hand debug</span>
+      </label>
+    </div>
+
+    <div class="row small">
+      <div class="pill">Steer: move hand left/right</div>
+      <div class="pill">Speed: move hand up/down</div>
+      <div class="pill">Goal: hit checkpoints → finish</div>
+    </div>
+
+    <div class="row small">
+      <div id="hud" class="hud">Time: -- | Checkpoints: 0/5</div>
+    </div>
+
+    <div class="row">
+        <div class="hud" style="min-width:340px">
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <div class="pill">Steer</div>
+            <div class="bar"><div id="barSteer" class="fill"></div></div>
+            <div id="txtSteer" class="pill">0.00</div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap;">
+            <div class="pill">Speed</div>
+            <div class="bar"><div id="barThrot" class="fill"></div></div>
+            <div id="txtThrot" class="pill">0.00</div>
+            </div>
+            <div class="small" style="margin-top:8px;opacity:0.9">
+            Put your hands inside the on-screen wheel. Move left/right to steer, up/down to speed up/slow down.
+            </div>
+        </div>
+</div>
+
+<div id="steerGuide" aria-hidden="true">
+  <div class="wheel"></div>
+  <div class="hand left"></div>
+  <div class="hand right"></div>
+  <div class="guideText">Hold hands here</div>
+</div>
+
+
+  </div>
+
+  <!-- Debug overlay for the webcam feed + landmarks (optional) -->
+  <div id="debugWrap" class="hidden">
+    <video id="webcam" autoplay playsinline></video>
+    <canvas id="debugCanvas"></canvas>
+  </div>
+
+  <canvas id="gameCanvas"></canvas>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

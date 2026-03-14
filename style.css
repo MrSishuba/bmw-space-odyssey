@@ -1,0 +1,188 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #05060a;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: #e9eef7;
+}
+
+#gameCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+}
+
+#ui {
+  position: fixed;
+  left: 12px;
+  top: 12px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: min(720px, calc(100vw - 24px));
+  pointer-events: none;
+}
+
+#ui .row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  pointer-events: none;
+}
+
+#ui button, #ui label {
+  pointer-events: auto;
+}
+
+.title {
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  font-size: 14px;
+  opacity: 0.95;
+}
+
+.pill {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.14);
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  backdrop-filter: blur(6px);
+}
+
+.small .pill {
+  font-size: 11px;
+  opacity: 0.92;
+}
+
+.hud {
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,255,255,0.14);
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  min-width: 260px;
+  backdrop-filter: blur(6px);
+}
+
+button {
+  background: rgba(255,255,255,0.10);
+  color: #e9eef7;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 12px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: rgba(255,255,255,0.14);
+}
+
+.toggle {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.14);
+  padding: 6px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+#debugWrap {
+  position: fixed;
+  right: 12px;
+  top: 12px;
+  z-index: 20;
+  width: 320px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 14px;
+  padding: 10px;
+  backdrop-filter: blur(8px);
+}
+
+#debugWrap.hidden { display: none; }
+
+#webcam, #debugCanvas {
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  display: block;
+}
+
+#debugCanvas {
+  margin-top: 8px;
+}
+
+.bar{
+  width: 160px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.14);
+  overflow: hidden;
+}
+.fill{
+  height: 100%;
+  width: 50%;
+  background: rgba(255,255,255,0.75);
+  transform: translateX(0%);
+}
+
+#steerGuide{
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  width: 260px;
+  height: 180px;
+  z-index: 9;
+  pointer-events: none;
+  opacity: 0.65;
+}
+#steerGuide .wheel{
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 170px;
+  height: 170px;
+  transform: translate(-50%,-50%);
+  border-radius: 999px;
+  border: 6px solid rgba(255,255,255,0.28);
+  box-shadow: 0 0 40px rgba(255,255,255,0.06);
+}
+#steerGuide .hand{
+  position: absolute;
+  width: 52px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(124,255,200,0.35);
+  border: 1px solid rgba(124,255,200,0.45);
+  top: 64px;
+}
+#steerGuide .hand.left{ left: 36px; transform: rotate(-22deg); }
+#steerGuide .hand.right{ right: 36px; transform: rotate(22deg); }
+
+#steerGuide .guideText{
+  position: absolute;
+  left: 50%;
+  bottom: 0px;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,255,255,0.14);
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  backdrop-filter: blur(6px);
+}
+
+button{
+  font-weight:600;
+}
