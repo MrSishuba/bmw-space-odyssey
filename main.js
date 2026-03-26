@@ -264,7 +264,8 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x05060a, 0.018);
+scene.background = new THREE.Color(0x0b1426);
+scene.fog = new THREE.FogExp2(0x0b1426, 0.008);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 400);
 camera.position.set(0, 1.1, 0); // will be attached to rover cockpit
@@ -315,9 +316,11 @@ const terrain = (() => {
   geo.computeVertexNormals();
 
   const mat = new THREE.MeshStandardMaterial({
-    color: 0x3b2a4a,
-    roughness: 0.95,
-    metalness: 0.0
+    color: 0x2a2f47,
+    roughness: 0.86,
+    metalness: 0.12,
+    emissive: 0x001122,
+    emissiveIntensity: 0.08
   });
 
   const mesh = new THREE.Mesh(geo, mat);
@@ -326,6 +329,45 @@ const terrain = (() => {
   return mesh;
 })();
 
+function addEnhancedScenery() {
+  const roadMaterial = new THREE.LineDashedMaterial({ color: 0x66c0ff, linewidth: 2, scale: 1, dashSize: 0.7, gapSize: 0.4 });
+  const roadPoints = [
+    new THREE.Vector3(0, 0.02, -2),
+    new THREE.Vector3(0, 0.02, -25),
+    new THREE.Vector3(0, 0.02, -48),
+    new THREE.Vector3(0, 0.02, -70),
+    new THREE.Vector3(0, 0.02, -92)
+  ];
+  const roadLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(roadPoints), roadMaterial);
+  roadLine.computeLineDistances();
+  scene.add(roadLine);
+
+  for (let i = 0; i < 16; i++) {
+    const b = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.14, 0.14, 1.5, 18),
+      new THREE.MeshStandardMaterial({ color: 0x88b0ff, roughness: 0.25, metalness: 0.5 })
+    );
+    const z = -10 - i * 5;
+    b.position.set((i % 2 ? 4 : -4), 0.75, z);
+    b.rotation.x = Math.PI / 2;
+    b.scale.setScalar(1 + Math.sin(i * 0.5) * 0.25);
+    scene.add(b);
+  }
+
+  for (let i = 0; i < 14; i++) {
+    const rock = new THREE.Mesh(
+      new THREE.DodecahedronGeometry(0.9 + Math.random() * 0.6),
+      new THREE.MeshStandardMaterial({ color: 0x425275, roughness: 0.7, metalness: 0.2 })
+    );
+    const z = -4 - i * 6;
+    rock.position.set((Math.random() - 0.5) * 16, 0.25 + Math.random() * 0.3, z);
+    rock.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+    scene.add(rock);
+  }
+}
+
+addEnhancedScenery();
+
 // Rover
 const rover = new THREE.Group();
 scene.add(rover);
@@ -333,10 +375,38 @@ scene.add(rover);
 // Body
 const body = new THREE.Mesh(
   new THREE.BoxGeometry(1.2, 0.35, 1.6),
-  new THREE.MeshStandardMaterial({ color: 0xb9c2ff, roughness: 0.6, metalness: 0.2 })
+  new THREE.MeshStandardMaterial({ color: 0xfafafa, roughness: 0.28, metalness: 0.62 })
 );
 body.position.set(0, 0.5, 0);
 rover.add(body);
+
+// BMW style stripes
+const stripe1 = new THREE.Mesh(
+  new THREE.BoxGeometry(0.06, 0.36, 1.6),
+  new THREE.MeshStandardMaterial({ color: 0x093774, roughness: 0.35, metalness: 0.8 })
+);
+stripe1.position.set(-0.34, 0, 0);
+rover.add(stripe1);
+
+const stripe2 = stripe1.clone();
+stripe2.position.set(0.34, 0, 0);
+rover.add(stripe2);
+
+const stripe3 = new THREE.Mesh(
+  new THREE.BoxGeometry(0.04, 0.36, 1.6),
+  new THREE.MeshStandardMaterial({ color: 0x75b0d7, roughness: 0.35, metalness: 0.8 })
+);
+stripe3.position.set(0, 0, 0);
+rover.add(stripe3);
+
+// BMW circular logo badge
+const logo = new THREE.Mesh(
+  new THREE.CircleGeometry(0.12, 32),
+  new THREE.MeshStandardMaterial({ color: 0x0b2e63, emissive: 0x1f5aac, emissiveIntensity: 0.5, roughness: 0.2, metalness: 0.7 })
+);
+logo.position.set(0, 0.77, 0.82);
+logo.rotation.x = -Math.PI / 2;
+rover.add(logo);
 
 // Cockpit frame (gives “inside rover” vibe)
 const cockpit = new THREE.Mesh(
