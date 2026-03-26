@@ -12,6 +12,8 @@ const txtSteer = document.getElementById("txtSteer");
 const txtThrot = document.getElementById("txtThrot");
 const canvas = document.getElementById("gameCanvas");
 const statusEl = document.getElementById("status");
+const modeEl = document.getElementById("controlMode");
+const voiceHintEl = document.getElementById("voiceHint");
 const hudEl = document.getElementById("hud");
 const btnStart = document.getElementById("btnStart");
 const btnCalibrate = document.getElementById("btnCalibrate");
@@ -56,9 +58,37 @@ let control = {
   throttle: 0 // -1..1
 };
 
+let controlMode = "hands"; // hands, keyboard, voice
+let voiceThrottle = 0;
+let voiceSteer = 0;
+let keysPressed = {};
+let speechRecognizer = null;
+
+function setControlMode(mode) {
+  controlMode = mode;
+  modeEl.textContent = `Mode: ${mode.toUpperCase()}`;
+  statusEl.textContent = `Control mode: ${mode}`;
+}
+
+function setVoiceHint(text) {
+  if (voiceHintEl) voiceHintEl.textContent = text;
+}
+
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 function lerp(a, b, t) { return a + (b - a) * t; }
 
+function updateControlFromKeyboard() {
+  const steerTarget = (keysPressed.ArrowRight ? 1 : 0) + (keysPressed.ArrowLeft ? -1 : 0);
+  const throttleTarget = keysPressed.ArrowUp ? 1 : keysPressed.ArrowDown ? -0.6 : 0;
+
+  control.steer = lerp(control.steer, steerTarget, 0.22);
+  control.throttle = lerp(control.throttle, throttleTarget, 0.18);
+}
+
+function updateControlFromVoice() {
+  // Voice controls speed only (throttle). Steering is hand-based.
+  control.throttle = lerp(control.throttle, voiceThrottle, 0.16);
+}
 
 async function setupWebcam() {
   const stream = await navigator.mediaDevices.getUserMedia({
@@ -127,7 +157,7 @@ function updateControlFromHands(result) {
     }
 
     control.steer = lerp(control.steer, 0, 0.08);
-    control.throttle = lerp(control.throttle, 0, 0.08);
+    // Hand no longer controls throttle; voice does.
     return;
   }
 
@@ -135,16 +165,12 @@ function updateControlFromHands(result) {
 
   // Convert webcam normalized coords (0..1) into steer/throttle -1..1 around calibrated center
   const rawSteer = (p.x - calib.centerX) / calib.rangeX;
-  const rawThrottle = (calib.centerY - p.y) / calib.rangeY; // up = faster
-
   const targetSteer = clamp(rawSteer, -1, 1);
-  const targetThrottle = clamp(rawThrottle, -1, 1);
 
   const dead = 0.08;
     const dz = (v) => (Math.abs(v) < dead ? 0 : v);
 
     const targetSteerDZ = dz(targetSteer);
-    const targetThrottleDZ = dz(targetThrottle);
 
      // Auto calibration: hold hands steady
 if (!calibrated) {
@@ -196,7 +222,7 @@ if (!calibrated) {
 }
 
     control.steer = lerp(control.steer, targetSteerDZ, 0.18);
-    control.throttle = lerp(control.throttle, targetThrottleDZ, 0.12);
+    // throttle remains voice-managed; do not touch here.
 }
 
 function drawDebug(result) {
@@ -238,7 +264,8 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x05060a, 0.018);
+scene.background = new THREE.Color(0x0b1426);
+scene.fog = new THREE.FogExp2(0x0b1426, 0.008);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 400);
 camera.position.set(0, 1.1, 0); // will be attached to rover cockpit
@@ -289,9 +316,11 @@ const terrain = (() => {
   geo.computeVertexNormals();
 
   const mat = new THREE.MeshStandardMaterial({
-    color: 0x3b2a4a,
-    roughness: 0.95,
-    metalness: 0.0
+    color: 0x2a2f47,
+    roughness: 0.86,
+    metalness: 0.12,
+    emissive: 0x001122,
+    emissiveIntensity: 0.08
   });
 
   const mesh = new THREE.Mesh(geo, mat);
@@ -300,6 +329,45 @@ const terrain = (() => {
   return mesh;
 })();
 
+function addEnhancedScenery() {
+  const roadMaterial = new THREE.LineDashedMaterial({ color: 0x66c0ff, linewidth: 2, scale: 1, dashSize: 0.7, gapSize: 0.4 });
+  const roadPoints = [
+    new THREE.Vector3(0, 0.02, -2),
+    new THREE.Vector3(0, 0.02, -25),
+    new THREE.Vector3(0, 0.02, -48),
+    new THREE.Vector3(0, 0.02, -70),
+    new THREE.Vector3(0, 0.02, -92)
+  ];
+  const roadLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(roadPoints), roadMaterial);
+  roadLine.computeLineDistances();
+  scene.add(roadLine);
+
+  for (let i = 0; i < 16; i++) {
+    const b = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.14, 0.14, 1.5, 18),
+      new THREE.MeshStandardMaterial({ color: 0x88b0ff, roughness: 0.25, metalness: 0.5 })
+    );
+    const z = -10 - i * 5;
+    b.position.set((i % 2 ? 4 : -4), 0.75, z);
+    b.rotation.x = Math.PI / 2;
+    b.scale.setScalar(1 + Math.sin(i * 0.5) * 0.25);
+    scene.add(b);
+  }
+
+  for (let i = 0; i < 14; i++) {
+    const rock = new THREE.Mesh(
+      new THREE.DodecahedronGeometry(0.9 + Math.random() * 0.6),
+      new THREE.MeshStandardMaterial({ color: 0x425275, roughness: 0.7, metalness: 0.2 })
+    );
+    const z = -4 - i * 6;
+    rock.position.set((Math.random() - 0.5) * 16, 0.25 + Math.random() * 0.3, z);
+    rock.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+    scene.add(rock);
+  }
+}
+
+addEnhancedScenery();
+
 // Rover
 const rover = new THREE.Group();
 scene.add(rover);
@@ -307,10 +375,38 @@ scene.add(rover);
 // Body
 const body = new THREE.Mesh(
   new THREE.BoxGeometry(1.2, 0.35, 1.6),
-  new THREE.MeshStandardMaterial({ color: 0xb9c2ff, roughness: 0.6, metalness: 0.2 })
+  new THREE.MeshStandardMaterial({ color: 0xfafafa, roughness: 0.28, metalness: 0.62 })
 );
 body.position.set(0, 0.5, 0);
 rover.add(body);
+
+// BMW style stripes
+const stripe1 = new THREE.Mesh(
+  new THREE.BoxGeometry(0.06, 0.36, 1.6),
+  new THREE.MeshStandardMaterial({ color: 0x093774, roughness: 0.35, metalness: 0.8 })
+);
+stripe1.position.set(-0.34, 0, 0);
+rover.add(stripe1);
+
+const stripe2 = stripe1.clone();
+stripe2.position.set(0.34, 0, 0);
+rover.add(stripe2);
+
+const stripe3 = new THREE.Mesh(
+  new THREE.BoxGeometry(0.04, 0.36, 1.6),
+  new THREE.MeshStandardMaterial({ color: 0x75b0d7, roughness: 0.35, metalness: 0.8 })
+);
+stripe3.position.set(0, 0, 0);
+rover.add(stripe3);
+
+// BMW circular logo badge
+const logo = new THREE.Mesh(
+  new THREE.CircleGeometry(0.12, 32),
+  new THREE.MeshStandardMaterial({ color: 0x0b2e63, emissive: 0x1f5aac, emissiveIntensity: 0.5, roughness: 0.2, metalness: 0.7 })
+);
+logo.position.set(0, 0.77, 0.82);
+logo.rotation.x = -Math.PI / 2;
+rover.add(logo);
 
 // Cockpit frame (gives “inside rover” vibe)
 const cockpit = new THREE.Mesh(
@@ -336,7 +432,7 @@ camera.position.set(0, 1.05, 0.2);
 
 // Rover state
 let roverPos = new THREE.Vector3(0, 0, 0);
-let roverYaw = 0;
+let roverYaw = 0; // face along -Z by default in forward vector logic
 let roverSpeed = 0;
 let lastHandPoint = null;
 
@@ -466,7 +562,7 @@ function updateHUD() {
 
 function resetGame() {
   nextCheckpointIdx = 0;
-  roverYaw = 0;
+  roverYaw = 0; // face toward the track (forward vector points -Z)
   roverSpeed = 0;
   roverPos.copy(path[0]);
   roverPos.y = terrainHeightAt(roverPos.x, roverPos.z) + 0.35;
@@ -505,13 +601,13 @@ function setGateColor(gate, colorHex) {
 
 // Apply driving physics based on hand controls
 function updateRover(dt) {
-  // steer affects yaw
-  const steerRate = 1.65; // rad/s at full steer
+  // steer affects yaw. positive steer/right rotates clockwise from top-down (turn right).
+  const steerRate = 0.55; // rad/s at full steer (reduced for smooth cornering)
   roverYaw += control.steer * steerRate * dt;
 
   // throttle controls acceleration
   const accel = 4.2;     // units/s^2
-  const drag = 1.9;      // slows down naturally
+  const drag = 0.3;      // reduced drag so car feels responsive
   roverSpeed += control.throttle * accel * dt;
   roverSpeed -= roverSpeed * drag * dt;
 
@@ -521,7 +617,15 @@ function updateRover(dt) {
 
   roverSpeed = clamp(roverSpeed, -3.5, 7.2);
 
-  const forward = new THREE.Vector3(Math.sin(roverYaw), 0, Math.cos(roverYaw));
+  // In voice mode with forward throttle, never let speed go negative
+  if (controlMode === "voice" && voiceThrottle > 0) {
+    roverSpeed = Math.max(roverSpeed, 0.1);
+  }
+
+  // Get the direction the rover is visually facing
+  const forward = new THREE.Vector3(0, 0, 1);
+  rover.getWorldDirection(forward);
+  forward.negate(); // negate to match intended direction
   roverPos.addScaledVector(forward, roverSpeed * dt);
 
   // keep rover floating just above terrain
@@ -578,6 +682,12 @@ function renderLoop() {
   lastT = now;
 
   if (gameRunning) {
+    if (controlMode === "keyboard") {
+      updateControlFromKeyboard();
+    } else if (controlMode === "voice") {
+      updateControlFromVoice();
+    }
+    // hand tracking still drives steering in all modes (but not throttle)
     updateRover(dt);
     const target = getNextTargetPos();
     const from = rover.position.clone();
@@ -648,6 +758,114 @@ btnCalibrate.addEventListener("click", () => {
 
 chkDebug.addEventListener("change", maybeToggleDebugUI);
 
+window.addEventListener("keydown", (e) => {
+  if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " "].includes(e.key)) {
+    e.preventDefault();
+    keysPressed[e.key] = true;
+    setControlMode("keyboard");
+  }
+  if (e.key.toLowerCase() === "s") {
+    // quick manual stop
+    control.throttle = 0;
+    control.steer = 0;
+    setControlMode("keyboard");
+  }
+});
+
+window.addEventListener("keyup", (e) => {
+  if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " "].includes(e.key)) {
+    keysPressed[e.key] = false;
+  }
+});
+
+function setupVoiceRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    console.warn("Speech Recognition API not supported");
+    return;
+  }
+
+  speechRecognizer = new SpeechRecognition();
+  speechRecognizer.continuous = true;
+  speechRecognizer.interimResults = false;
+  speechRecognizer.lang = "en-US";
+
+  speechRecognizer.onstart = () => {
+    statusEl.textContent = "Voice control ready (say 'drive'/'stop'/'faster'/'slower')";
+    setVoiceHint("Say 'drive', 'stop', 'faster', 'slower', 'left', 'right'");
+  };
+
+  speechRecognizer.onresult = (event) => {
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const text = event.results[i][0].transcript.trim().toLowerCase();
+      let changed = false;
+
+      if (text.includes("drive")) {
+        setControlMode("voice");
+        voiceThrottle = 0.2;
+        voiceSteer = 0;
+        roverSpeed = 0; // reset speed on new drive command
+        if (!gameRunning) {
+          resetGame();
+          gameRunning = true;
+          startedAt = performance.now();
+        }
+        statusEl.textContent = "Voice: DRIVE";
+        changed = true;
+      } else if (text.includes("stop")) {
+        setControlMode("voice");
+        voiceThrottle = 0;
+        voiceSteer = 0;
+        gameRunning = false;
+        statusEl.textContent = "Voice: STOP";
+        changed = true;
+      }
+      if (text.includes("faster")) {
+        setControlMode("voice");
+        voiceThrottle = clamp(voiceThrottle + 0.2, 0, 1);
+        statusEl.textContent = `Voice: FASTER (${voiceThrottle.toFixed(2)})`;
+        changed = true;
+      } else if (text.includes("slower")) {
+        setControlMode("voice");
+        voiceThrottle = clamp(voiceThrottle - 0.2, 0, 1);
+        statusEl.textContent = `Voice: SLOWER (${voiceThrottle.toFixed(2)})`;
+        changed = true;
+      }
+      if (text.includes("left")) {
+        setControlMode("voice");
+        voiceSteer = -0.7;
+        statusEl.textContent = "Voice: LEFT";
+        changed = true;
+      }
+      if (text.includes("right")) {
+        setControlMode("voice");
+        voiceSteer = 0.7;
+        statusEl.textContent = "Voice: RIGHT";
+        changed = true;
+      }
+
+      if (changed) {
+        gameRunning = true;
+      }
+    }
+  };
+
+  speechRecognizer.onerror = (e) => {
+    console.warn("Speech recognition error", e);
+    statusEl.textContent = "Voice recognition error";
+    setVoiceHint("");
+  };
+
+  speechRecognizer.onend = () => {
+    // restart automatically
+    setTimeout(() => {
+      if (speechRecognizer) speechRecognizer.start();
+    }, 500);
+  };
+
+  speechRecognizer.start();
+}
+
 window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -669,6 +887,10 @@ window.addEventListener("resize", () => {
     maybeToggleDebugUI();
     resetGame();
 
+    setControlMode("hands");
+    setVoiceHint("Voice: say 'drive'/'stop'/'faster'/'slower'/'left'/'right' (if supported)");
+
+    setupVoiceRecognition();
     handLoop();
     renderLoop();
   } catch (e) {
