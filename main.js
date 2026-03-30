@@ -20,7 +20,27 @@ const debugWrap = document.getElementById("debugWrap");
 const videoEl = document.getElementById("webcam");
 const debugCanvas = document.getElementById("debugCanvas");
 const debugCtx = debugCanvas.getContext("2d");
+const leftHandShellEl = document.querySelector(".leftHandShell");
+const rightHandShellEl = document.querySelector(".rightHandShell");
 
+const steerGuideEl = document.getElementById("steerGuide");
+const slotLeftEl = document.getElementById("slotLeft");
+const slotRightEl = document.getElementById("slotRight");
+const guideStatusEl = document.getElementById("guideStatus");
+const leftHandVisualEl = document.getElementById("leftHandVisual");
+const rightHandVisualEl = document.getElementById("rightHandVisual");
+
+const btnResetGame = document.getElementById("btnResetGame");
+const btnToggleReverse = document.getElementById("btnToggleReverse");
+const btnShutdown = document.getElementById("btnShutdown");
+const btnTurbo = document.getElementById("btnTurbo");
+const btnFire = document.getElementById("btnFire");
+const btnRespawn = document.getElementById("btnRespawn");
+
+const aiPromptEl = document.getElementById("aiPrompt");
+const countdownWrapEl = document.getElementById("countdownWrap");
+const countdownTextEl = document.getElementById("countdownText");
+const speedCursorEl = document.getElementById("speedCursor");
 
 // -----------------------
 // Hand Tracking (MediaPipe)
@@ -38,8 +58,19 @@ let calibSumY = 0;
 let lastP = null;
 let missingHandsFrames = 0;
 
+let lastHandState = { left: null, right: null, center: null };
+let gripCalib = { left: null, right: null };
+let gripState = { leftOn: false, rightOn: false, bothOn: false };
+
+let steerBaseAngle = 0;
+
 const STABLE_N = 25;     // ~0.4 seconds
 const STABLE_EPS = 0.015;
+
+
+const GRIP_LOCK_DIST = 0.14;
+const STEER_MAX_ANGLE = 0.38;   // smaller = more responsive steering
+const STEER_SMOOTH = 0.42;      // bigger = reacts faster
 
 
 
@@ -56,8 +87,111 @@ let control = {
   throttle: 0 // -1..1
 };
 
+let roverMode = "idle"; // idle | calibrated | speed_select | engaged | shutdown
+let reverseEnabled = false;
+let turboActive = false;
+let turboUntil = 0;
+let lastCheckpointIndex = 0;
+let selectedSpeed = 0.35;
+
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 function lerp(a, b, t) { return a + (b - a) * t; }
+
+function setAIPrompt(text) {
+  if (aiPromptEl) aiPromptEl.textContent = text;
+}
+
+function setCountdownVisible(show) {
+  if (!countdownWrapEl) return;
+  countdownWrapEl.classList.toggle("hidden", !show);
+}
+
+function updateSpeedCursorUI() {
+  if (!speedCursorEl) return;
+
+  const scaleEl = document.querySelector(".speedScale");
+  if (!scaleEl) return;
+
+  const pct = clamp(selectedSpeed, 0, 1);
+  const usableHeight = scaleEl.clientHeight - 64; // padding for top/bottom
+  const bottomPx = 24 + pct * usableHeight;
+
+  speedCursorEl.style.bottom = `${bottomPx}px`;
+}
+
+function setReverseUI() {
+  if (!btnToggleReverse) return;
+  btnToggleReverse.textContent = reverseEnabled ? "ON" : "OFF";
+}
+
+function shutdownRover() {
+  roverMode = "shutdown";
+  gameRunning = false;
+  control.throttle = 0;
+  roverSpeed = 0;
+  selectedSpeed = 0;
+  updateSpeedCursorUI();
+  setAIPrompt("ROVER SHUTDOWN");
+  setCountdownVisible(false);
+}
+
+async function engageCountdown() {
+  setCountdownVisible(true);
+  roverMode = "engaging";
+
+  const dots = Array.from(document.querySelectorAll(".countDot"));
+  const steps = [3, 2, 1];
+
+  for (let i = 0; i < steps.length; i++) {
+    if (countdownTextEl) countdownTextEl.textContent = `Engaging rover in… ${steps[i]}`;
+    dots.forEach((d, idx) => d.classList.toggle("active", idx === i));
+    await new Promise(r => setTimeout(r, 700));
+  }
+
+  setCountdownVisible(false);
+  roverMode = "engaged";
+  gameRunning = true;
+  startedAt = performance.now();
+  setAIPrompt("ROVER ENGAGED");
+}
+
+function respawnLastCheckpoint() {
+  const idx = Math.max(0, Math.min(lastCheckpointIndex, path.length - 1));
+  const p = path[idx].clone();
+  roverPos.copy(p);
+  roverPos.y = terrainHeightAt(roverPos.x, roverPos.z) + 0.35;
+  rover.position.copy(roverPos);
+  roverSpeed = 0;
+  roverYaw = 0;
+}
+
+function getSpeedFromScreenY(clientY) {
+  const scaleEl = document.querySelector(".speedScale");
+  if (!scaleEl) return selectedSpeed;
+
+  const rect = scaleEl.getBoundingClientRect();
+  const y = clamp(clientY, rect.top, rect.bottom);
+  const pctFromBottom = 1 - ((y - rect.top) / rect.height);
+
+  return clamp(pctFromBottom, 0, 1);
+}
+
+function setSelectedSpeedFromPointer(clientY) {
+  selectedSpeed = getSpeedFromScreenY(clientY);
+  updateSpeedCursorUI();
+
+  if (selectedSpeed < 0.12) {
+    setAIPrompt("ROVER SPEED: LOW");
+  } else if (selectedSpeed < 0.45) {
+    setAIPrompt("ROVER SPEED: CRUISE");
+  } else if (selectedSpeed < 0.75) {
+    setAIPrompt("ROVER SPEED: FAST");
+  } else {
+    setAIPrompt("ROVER SPEED: MAX");
+  }
+}
+
+
 
 
 async function setupWebcam() {
@@ -90,27 +224,163 @@ async function setupHandLandmarker() {
   drawingUtils = new DrawingUtils(debugCtx);
 }
 
-// Pick one “primary” hand point to drive with: wrist (landmark 0)
-function getPrimaryHandPoint(result) {
-  const hands = result?.landmarks;
-  if (!hands || hands.length === 0) return null;
+function distNorm(a, b) {
+  if (!a || !b) return Infinity;
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
 
-  // If 2 hands: average both wrists for smoother driving
-  if (hands.length >= 2) {
-    const w0 = hands[0][0];
-    const w1 = hands[1][0];
-    return {
-      x: (w0.x + w1.x) * 0.5,
-      y: (w0.y + w1.y) * 0.5
+function paintGrip(el, state) {
+  if (!el) return;
+  el.classList.remove("idle", "active", "missing");
+  el.classList.add(state);
+}
+
+function updateSteeringGuideUI() {
+  if (!steerGuideEl) return;
+
+  const wheelEl = steerGuideEl.querySelector(".wheel");
+  if (wheelEl) {
+    wheelEl.style.transform = `translate(-50%,-50%) rotate(${control.steer * 22}deg)`;
+  }
+
+ if (leftHandShellEl) {
+  leftHandShellEl.style.transform = `rotate(${20 + control.steer * 10}deg) translateY(${Math.abs(control.steer) * -4}px)`;
+}
+
+if (rightHandShellEl) {
+  rightHandShellEl.style.transform = `rotate(${-20 + control.steer * 10}deg) translateY(${Math.abs(control.steer) * -4}px)`;
+}
+
+  steerGuideEl.classList.remove("locked");
+  leftHandShellEl?.classList.remove("active");
+  rightHandShellEl?.classList.remove("active");
+
+  if (!calibrated) {
+    paintGrip(slotLeftEl, "idle");
+    paintGrip(slotRightEl, "idle");
+    leftHandVisualEl?.classList.remove("active");
+    rightHandVisualEl?.classList.remove("active");
+    if (guideStatusEl) guideStatusEl.textContent = "Show both hands";
+    return;
+  }
+
+  if (!gripCalib.left || !gripCalib.right) {
+  paintGrip(slotLeftEl, "missing");
+  paintGrip(slotRightEl, "missing");
+  leftHandVisualEl?.classList.remove("active");
+  rightHandVisualEl?.classList.remove("active");
+  if (guideStatusEl) guideStatusEl.textContent = "Use both hands + recalibrate";
+  return;
+}
+
+  gripState = getGripLockState();
+
+  paintGrip(slotLeftEl, gripState.leftOn ? "active" : "missing");
+  paintGrip(slotRightEl, gripState.rightOn ? "active" : "missing");
+
+  leftHandVisualEl?.classList.toggle("active", gripState.leftOn);
+  rightHandVisualEl?.classList.toggle("active", gripState.rightOn);
+
+  if (gripState.leftOn) leftHandShellEl?.classList.add("active");
+  if (gripState.rightOn) rightHandShellEl?.classList.add("active");
+
+  if (gripState.bothOn) {
+    steerGuideEl.classList.add("locked");
+    if (guideStatusEl) guideStatusEl.textContent = "Steering locked";
+  } else if (lastHandState.left || lastHandState.right) {
+    if (guideStatusEl) guideStatusEl.textContent = "Adjust hand position";
+  } else {
+    if (guideStatusEl) guideStatusEl.textContent = "Show both hands";
+  }
+}
+
+function getHandState(result) {
+  const hands = result?.landmarks || [];
+  const handednesses = result?.handednesses || [];
+  const state = { left: null, right: null, center: null };
+  const loose = [];
+
+  for (let i = 0; i < hands.length; i++) {
+    const wrist = hands[i][0];
+    const point = { x: wrist.x, y: wrist.y };
+
+    const label =
+      handednesses?.[i]?.[0]?.categoryName?.toLowerCase?.() ||
+      handednesses?.[i]?.[0]?.displayName?.toLowerCase?.() ||
+      "";
+
+    if (label.includes("left")) {
+      state.left = point;
+    } else if (label.includes("right")) {
+      state.right = point;
+    } else {
+      loose.push(point);
+    }
+  }
+
+  if (!state.left || !state.right) {
+    const all = [state.left, state.right, ...loose]
+      .filter(Boolean)
+      .sort((a, b) => a.x - b.x);
+
+    if (all.length === 1) {
+      state.left = all[0];
+    } else if (all.length >= 2) {
+      state.left = all[0];
+      state.right = all[all.length - 1];
+    }
+  }
+
+  const pts = [state.left, state.right].filter(Boolean);
+  if (pts.length) {
+    state.center = {
+      x: pts.reduce((s, p) => s + p.x, 0) / pts.length,
+      y: pts.reduce((s, p) => s + p.y, 0) / pts.length,
     };
   }
 
-  const w = hands[0][0];
-  return { x: w.x, y: w.y };
+  return state;
+}
+
+function normalizeAngle(rad) {
+  while (rad > Math.PI) rad -= Math.PI * 2;
+  while (rad < -Math.PI) rad += Math.PI * 2;
+  return rad;
+}
+
+function getWheelAngle(state) {
+  if (!state?.left || !state?.right) return null;
+  return Math.atan2(
+    state.right.y - state.left.y,
+    state.right.x - state.left.x
+  );
+}
+
+function getGripLockState() {
+  if (!gripCalib.left || !gripCalib.right) {
+    return { leftOn: false, rightOn: false, bothOn: false };
+  }
+
+  const leftOn = distNorm(lastHandState.left, gripCalib.left) < GRIP_LOCK_DIST;
+  const rightOn = distNorm(lastHandState.right, gripCalib.right) < GRIP_LOCK_DIST;
+
+  return {
+    leftOn,
+    rightOn,
+    bothOn: leftOn && rightOn
+  };
+}
+
+// Pick one “primary” hand point to drive with: wrist (landmark 0)
+function getPrimaryHandPoint(result) {
+  return getHandState(result).center;
 }
 
 function updateControlFromHands(result) {
-  const p = getPrimaryHandPoint(result);
+  const handState = getHandState(result);
+  lastHandState = handState;
+
+  const p = handState.center;
   lastHandPoint = p;
   if (!p) {
 
@@ -128,23 +398,34 @@ function updateControlFromHands(result) {
 
     control.steer = lerp(control.steer, 0, 0.08);
     control.throttle = lerp(control.throttle, 0, 0.08);
+    updateSteeringGuideUI();
+
     return;
   }
 
   missingHandsFrames = 0;
 
-  // Convert webcam normalized coords (0..1) into steer/throttle -1..1 around calibrated center
-  const rawSteer = (p.x - calib.centerX) / calib.rangeX;
-  const rawThrottle = (calib.centerY - p.y) / calib.rangeY; // up = faster
+ 
 
-  const targetSteer = clamp(rawSteer, -1, 1);
-  const targetThrottle = clamp(rawThrottle, -1, 1);
+    // Steering now comes from wheel rotation between left/right hands
+    let targetSteer = 0;
 
-  const dead = 0.08;
-    const dz = (v) => (Math.abs(v) < dead ? 0 : v);
+gripState = getGripLockState();
 
-    const targetSteerDZ = dz(targetSteer);
-    const targetThrottleDZ = dz(targetThrottle);
+const currentWheelAngle = getWheelAngle(handState);
+
+  if (calibrated && gripState.bothOn && currentWheelAngle !== null) {
+    const angleDelta = normalizeAngle(currentWheelAngle - steerBaseAngle);
+    targetSteer = clamp(angleDelta / STEER_MAX_ANGLE, -1, 1);
+  } else {
+    targetSteer = 0;
+  }
+
+  const dead = 0.035;
+  const dz = (v) => (Math.abs(v) < dead ? 0 : v);
+
+  const targetSteerDZ = dz(targetSteer);
+ 
 
      // Auto calibration: hold hands steady
 if (!calibrated) {
@@ -173,13 +454,21 @@ if (!calibrated) {
 
     if (stableFrames >= STABLE_N) {
 
-      calib.centerX = calibSumX / stableFrames;
-      calib.centerY = calibSumY / stableFrames;
+    calib.centerX = calibSumX / stableFrames;
+    calib.centerY = calibSumY / stableFrames;
 
-      calibrated = true;
+    if (handState.left && handState.right) {
+      gripCalib.left = { ...handState.left };
+      gripCalib.right = { ...handState.right };
 
-      statusEl.textContent = "Calibrated ✅ Press Start";
+      const angle = getWheelAngle(handState);
+      if (angle !== null) steerBaseAngle = angle;
     }
+
+    calibrated = true;
+
+    statusEl.textContent = "Calibrated ✅ Press Start";
+  }
 
   } else {
 
@@ -195,8 +484,9 @@ if (!calibrated) {
 
 }
 
-    control.steer = lerp(control.steer, targetSteerDZ, 0.18);
-    control.throttle = lerp(control.throttle, targetThrottleDZ, 0.12);
+   const steerLerp = gripState.bothOn ? STEER_SMOOTH : 0.55;
+   control.steer = lerp(control.steer, targetSteerDZ, steerLerp);
+   // throttle is handled by updateRover() from selectedSpeed
 }
 
 function drawDebug(result) {
@@ -238,16 +528,20 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x05060a, 0.018);
+scene.fog = new THREE.FogExp2(0x0a1020, 0.012);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 400);
 camera.position.set(0, 1.1, 0); // will be attached to rover cockpit
 
 // Lights
-scene.add(new THREE.AmbientLight(0x8aa1ff, 0.35));
-const dir = new THREE.DirectionalLight(0xffffff, 0.9);
-dir.position.set(10, 20, 10);
+scene.add(new THREE.AmbientLight(0x5a78ff, 0.25));
+const dir = new THREE.DirectionalLight(0xaad4ff, 1.2);
+dir.position.set(6, 14, 8);
 scene.add(dir);
+
+const glowLight = new THREE.PointLight(0x44ccff, 2, 20);
+glowLight.position.set(0, 2, 2);
+scene.add(glowLight);
 
 // Starfield
 (function makeStars() {
@@ -289,9 +583,11 @@ const terrain = (() => {
   geo.computeVertexNormals();
 
   const mat = new THREE.MeshStandardMaterial({
-    color: 0x3b2a4a,
-    roughness: 0.95,
-    metalness: 0.0
+    color: 0x2a1f3a,
+    roughness: 0.85,
+    metalness: 0.1,
+    emissive: 0x0a0f2a,
+    emissiveIntensity: 0.25
   });
 
   const mesh = new THREE.Mesh(geo, mat);
@@ -299,6 +595,17 @@ const terrain = (() => {
   scene.add(mesh);
   return mesh;
 })();
+
+const horizonGlow = new THREE.Mesh(
+  new THREE.SphereGeometry(180, 32, 32),
+  new THREE.MeshBasicMaterial({
+    color: 0x3a6cff,
+    transparent: true,
+    opacity: 0.08,
+    side: THREE.BackSide
+  })
+);
+scene.add(horizonGlow);
 
 // Rover
 const rover = new THREE.Group();
@@ -312,27 +619,22 @@ const body = new THREE.Mesh(
 body.position.set(0, 0.5, 0);
 rover.add(body);
 
-// Cockpit frame (gives “inside rover” vibe)
-const cockpit = new THREE.Mesh(
-  new THREE.TorusGeometry(0.55, 0.06, 10, 24),
-  new THREE.MeshStandardMaterial({ color: 0x1a1f3a, roughness: 0.4, metalness: 0.4 })
-);
-cockpit.rotation.y = Math.PI / 2;
-cockpit.position.set(0, 0.95, 0.25);
-rover.add(cockpit);
 
 // “Dashboard” plane
 const dash = new THREE.Mesh(
-  new THREE.PlaneGeometry(0.8, 0.25),
-  new THREE.MeshStandardMaterial({ color: 0x0a0e1f, roughness: 0.9, metalness: 0.1 })
+  new THREE.BoxGeometry(1.8, 0.18, 0.6),
+  new THREE.MeshStandardMaterial({
+    color: 0x0b1222,
+    roughness: 0.6,
+    metalness: 0.3
+  })
 );
-dash.position.set(0, 0.82, 0.65);
-dash.rotation.x = -0.45;
+dash.position.set(0, 0.65, 0.7);
 rover.add(dash);
 
 // Attach camera inside cockpit (slightly back and up)
 rover.add(camera);
-camera.position.set(0, 1.05, 0.2);
+camera.position.set(0, 1.15, -0.25);
 
 // Rover state
 let roverPos = new THREE.Vector3(0, 0, 0);
@@ -445,7 +747,7 @@ function makeBeacon() {
   roverPos.copy(path[0]);
   roverPos.y = terrainHeightAt(roverPos.x, roverPos.z) + 0.35;
   rover.position.copy(roverPos);
-  makeBeacon();
+  // makeBeacon();
 })();
 
 // Game loop/time
@@ -505,34 +807,52 @@ function setGateColor(gate, colorHex) {
 
 // Apply driving physics based on hand controls
 function updateRover(dt) {
-  // steer affects yaw
-  const steerRate = 1.65; // rad/s at full steer
+  let desiredThrottle = 0;
+
+  if (roverMode === "engaged") {
+    desiredThrottle = selectedSpeed;
+  }
+
+  if (reverseEnabled) {
+    desiredThrottle *= -1;
+  }
+
+  if (turboActive) {
+    if (performance.now() < turboUntil) {
+      desiredThrottle *= 1.75;
+    } else {
+      turboActive = false;
+    }
+  }
+
+  control.throttle = lerp(control.throttle, desiredThrottle, 0.08);
+
+  const steerRate = 1.15;
   roverYaw += control.steer * steerRate * dt;
 
-  // throttle controls acceleration
-  const accel = 4.2;     // units/s^2
-  const drag = 1.9;      // slows down naturally
+  const accel = 6.5;
+  const drag = 2.4;
+
   roverSpeed += control.throttle * accel * dt;
   roverSpeed -= roverSpeed * drag * dt;
 
-  if (Math.abs(control.throttle) > 0.08 && Math.abs(roverSpeed) < 0.4) {
-  roverSpeed = 0.4 * Math.sign(control.throttle);
-}
+  if (Math.abs(control.throttle) > 0.08 && Math.abs(roverSpeed) < 0.9) {
+    roverSpeed = 0.9 * Math.sign(control.throttle);
+  }
 
-  roverSpeed = clamp(roverSpeed, -3.5, 7.2);
+  roverSpeed = clamp(roverSpeed, -8.5, 8.5);
 
   const forward = new THREE.Vector3(Math.sin(roverYaw), 0, Math.cos(roverYaw));
   roverPos.addScaledVector(forward, roverSpeed * dt);
 
-  // keep rover floating just above terrain
   roverPos.y = terrainHeightAt(roverPos.x, roverPos.z) + 0.35;
 
   rover.position.copy(roverPos);
   rover.rotation.set(0, roverYaw, 0);
 
-  // slight camera bob
   camera.position.y = 1.05 + Math.sin(performance.now() * 0.004) * 0.01;
 }
+
 
 let lastT = performance.now();
 
@@ -551,25 +871,21 @@ async function handLoop() {
   requestAnimationFrame(handLoop);
 }
 
-function updateMeters(){
+function updateMeters() {
   if (!barSteer || !barThrot) return;
 
-  // steer/throttle are -1..1; convert to 0..100%
   const s = (control.steer + 1) * 50;
-  const t = (control.throttle + 1) * 50;
+  const t = clamp(control.throttle, 0, 1) * 100;
 
-    const guide = document.getElementById("steerGuide");
-    if (guide) {
-    // tilt the wheel based on steer (purely visual)
-    const wheel = guide.querySelector(".wheel");
-    if (wheel) wheel.style.transform = `translate(-50%,-50%) rotate(${control.steer * 20}deg)`;
-    }
+  updateSteeringGuideUI();
 
-  barSteer.style.width = `${clamp(s,0,100)}%`;
-  barThrot.style.width = `${clamp(t,0,100)}%`;
+  barSteer.style.width = `${clamp(s, 0, 100)}%`;
+  barThrot.style.width = `${clamp(t, 0, 100)}%`;
 
   txtSteer.textContent = control.steer.toFixed(2);
   txtThrot.textContent = control.throttle.toFixed(2);
+
+  updateSpeedCursorUI();
 }
 
 function renderLoop() {
@@ -592,18 +908,17 @@ function renderLoop() {
     navArrow.setDirection(dir);
     }
 
-    if (beacon) {
-    beacon.position.copy(target);
-    beacon.position.y = terrainHeightAt(target.x, target.z) + 6;
-    }
+  
     // gates logic
     if (nextCheckpointIdx < checkpointCount) {
-      const gate = checkpoints[nextCheckpointIdx];
-      if (checkGateHit(gate)) {
+    const gate = checkpoints[nextCheckpointIdx];
+    if (checkGateHit(gate)) {
         setGateColor(gate, 0x4cff6e);
         nextCheckpointIdx++;
+        lastCheckpointIndex = Math.min(nextCheckpointIdx, path.length - 2);
       }
-    } else {
+    }
+    else {
       if (checkGateHit(finishGate)) {
         winGame();
       }
@@ -625,14 +940,23 @@ function renderLoop() {
 // -----------------------
 // UI Handlers
 // -----------------------
-btnStart.addEventListener("click", () => {
+btnStart.addEventListener("click", async () => {
   if (!calibrated) {
     statusEl.textContent = "Hold hands steady first…";
     return;
   }
+
+  if (selectedSpeed <= 0.02) {
+    roverMode = "speed_select";
+    setAIPrompt("SET SPEED ON RIGHT PANEL");
+    statusEl.textContent = "Set speed first";
+    return;
+  }
+
   resetGame();
-  gameRunning = true;
-  startedAt = performance.now();
+  roverMode = "speed_select";
+  setAIPrompt("ENGAGING ROVER...");
+  await engageCountdown();
   statusEl.textContent = "Go!";
 });
 
@@ -640,13 +964,75 @@ btnCalibrate.addEventListener("click", () => {
   if (lastHandPoint) {
     calib.centerX = lastHandPoint.x;
     calib.centerY = lastHandPoint.y;
-    statusEl.textContent = "Calibrated ✅ (hands centered)";
+
+    if (lastHandState.left && lastHandState.right) {
+      gripCalib.left = { ...lastHandState.left };
+      gripCalib.right = { ...lastHandState.right };
+
+      const angle = getWheelAngle(lastHandState);
+      if (angle !== null) steerBaseAngle = angle;
+
+      calibrated = true;
+      statusEl.textContent = "Calibrated ✅ Press Start";
+    } else {
+      statusEl.textContent = "Show both hands to calibrate grips";
+    }
   } else {
     statusEl.textContent = "No hands detected 👋";
   }
 });
 
+btnResetGame?.addEventListener("click", () => {
+  shutdownRover();
+  resetGame();
+  nextCheckpointIdx = 0;
+  lastCheckpointIndex = 0;
+  selectedSpeed = 0.35;
+  updateSpeedCursorUI();
+  setAIPrompt("SYSTEM RESET");
+});
+
+btnToggleReverse?.addEventListener("click", () => {
+  reverseEnabled = !reverseEnabled;
+  setReverseUI();
+});
+
+btnShutdown?.addEventListener("click", () => {
+  shutdownRover();
+});
+
+btnTurbo?.addEventListener("click", () => {
+  turboActive = true;
+  turboUntil = performance.now() + 2500;
+  setAIPrompt("TURBO BOOST");
+});
+
+btnFire?.addEventListener("click", () => {
+  setAIPrompt("TARGET SYSTEMS ONLINE");
+});
+
+
+
+btnRespawn?.addEventListener("click", () => {
+  respawnLastCheckpoint();
+  setAIPrompt("RESPAWNED AT CHECKPOINT");
+});
+
+const speedScaleEl = document.querySelector(".speedScale");
+
+speedScaleEl?.addEventListener("pointerdown", (e) => {
+  setSelectedSpeedFromPointer(e.clientY);
+});
+
+speedScaleEl?.addEventListener("pointermove", (e) => {
+  if (e.buttons === 1) {
+    setSelectedSpeedFromPointer(e.clientY);
+  }
+});
+
 chkDebug.addEventListener("change", maybeToggleDebugUI);
+
+
 
 window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -662,18 +1048,31 @@ window.addEventListener("resize", () => {
     statusEl.textContent = "Requesting webcam…";
     await setupWebcam();
 
-    statusEl.textContent = "Loading hand tracker…";
-    await setupHandLandmarker();
-
-    statusEl.textContent = "Show hands to begin";
     maybeToggleDebugUI();
-    resetGame();
+    renderLoop(); // start rendering the 3D scene no matter what
 
-    handLoop();
-    renderLoop();
+    try {
+      statusEl.textContent = "Loading hand tracker…";
+      await setupHandLandmarker();
+
+      statusEl.textContent = "Show hands to begin";
+      handLoop();
+    } catch (trackerError) {
+      console.error("Hand tracker failed:", trackerError);
+      statusEl.textContent = "Hand tracker failed";
+      hudEl.textContent = "Check webcam permissions, use http://localhost:8000, and try Chrome if Firefox acts up.";
+    }
+
+    setReverseUI();
+    updateSpeedCursorUI();
+    setCountdownVisible(false);
+    setAIPrompt("PRESS TO ENGAGE SPEED…");
+    roverMode = "idle";
+
   } catch (e) {
     console.error(e);
     statusEl.textContent = "Error: webcam/permissions";
-    hudEl.textContent = "If camera fails: use http://localhost (not file://) and allow permissions.";
+    hudEl.textContent = "If camera fails: use http://localhost:8000 (not file://) and allow permissions.";
+    renderLoop(); // still render the scene even if webcam fails
   }
 })();

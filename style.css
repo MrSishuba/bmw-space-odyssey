@@ -2,10 +2,21 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background: #05060a;
+  background: radial-gradient(circle at 50% 20%, #09111f 0%, #05060a 60%, #030409 100%);
   overflow: hidden;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   color: #e9eef7;
+}
+
+:root{
+  --cyan: #7cecff;
+  --cyan-soft: rgba(124, 236, 255, 0.28);
+  --cyan-strong: rgba(124, 236, 255, 0.75);
+  --panel: rgba(7, 10, 20, 0.55);
+  --panel-border: rgba(144, 208, 255, 0.18);
+  --danger: #df4a9d;
+  --gold: #ffca47;
+  --shadow: 0 0 28px rgba(124, 236, 255, 0.12);
 }
 
 #gameCanvas {
@@ -16,173 +27,1005 @@ html, body {
   display: block;
 }
 
-#ui {
+#uiShell {
   position: fixed;
-  left: 12px;
-  top: 12px;
+  inset: 0;
   z-index: 10;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-width: min(720px, calc(100vw - 24px));
   pointer-events: none;
 }
 
-#ui .row {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
-  pointer-events: none;
-}
-
-#ui button, #ui label {
+button, label, input {
   pointer-events: auto;
 }
 
-.title {
+#topBar {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.brand {
+  font-size: 18px;
   font-weight: 800;
-  letter-spacing: 0.8px;
-  font-size: 14px;
-  opacity: 0.95;
+  letter-spacing: 1px;
+  text-shadow: 0 0 12px rgba(255,255,255,0.08);
 }
 
-.pill {
+.topControls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.neoBtn,
+.neoToggle,
+.statusPill,
+.hintPill,
+.telemetryCard,
+.miniToggle,
+.actionWide {
+  backdrop-filter: blur(10px);
+}
+
+.neoBtn {
   background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.14);
-  padding: 6px 10px;
+  border: 1px solid rgba(170, 220, 255, 0.24);
+  color: #eef8ff;
   border-radius: 999px;
-  font-size: 12px;
-  backdrop-filter: blur(6px);
-}
-
-.small .pill {
-  font-size: 11px;
-  opacity: 0.92;
-}
-
-.hud {
-  background: rgba(0,0,0,0.35);
-  border: 1px solid rgba(255,255,255,0.14);
-  padding: 8px 10px;
-  border-radius: 12px;
-  font-size: 12px;
-  min-width: 260px;
-  backdrop-filter: blur(6px);
-}
-
-button {
-  background: rgba(255,255,255,0.10);
-  color: #e9eef7;
-  border: 1px solid rgba(255,255,255,0.18);
-  border-radius: 12px;
-  padding: 8px 12px;
+  padding: 11px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04), 0 0 18px rgba(124,236,255,0.10);
   cursor: pointer;
 }
 
-button:hover {
-  background: rgba(255,255,255,0.14);
+.neoBtn.secondary {
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04), 0 0 18px rgba(90,160,255,0.10);
 }
 
-.toggle {
+.neoBtn:hover,
+.miniToggle:hover,
+.actionWide:hover {
+  filter: brightness(1.08);
+}
+
+.neoToggle {
   display: inline-flex;
-  gap: 8px;
   align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 999px;
   background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.14);
-  padding: 6px 10px;
-  border-radius: 12px;
-  font-size: 12px;
+  border: 1px solid rgba(170, 220, 255, 0.24);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04), 0 0 18px rgba(124,236,255,0.10);
+}
+
+.statusPill {
+  margin-left: auto;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(10, 15, 28, 0.68);
+  border: 1px solid rgba(170, 220, 255, 0.22);
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 0 16px rgba(124,236,255,0.10);
+}
+
+#leftPanel {
+  position: fixed;
+  left: 16px;
+  top: 96px;
+  width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hintRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.hintPill {
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(14,24,44,0.88), rgba(7,12,24,0.78));
+  border: 1px solid rgba(124,236,255,0.20);
+  box-shadow:
+    0 0 14px rgba(124,236,255,0.06),
+    inset 0 1px 0 rgba(180,240,255,0.08);
+  font-size: 13px;
+}
+
+.telemetryCard {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.telemetryLine {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.telemetryLabel {
+  width: 56px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.telemetryValue {
+  min-width: 54px;
+  text-align: right;
+  font-weight: 700;
+  opacity: 0.95;
+}
+
+.telemetryText {
+  font-size: 13px;
+  line-height: 1.5;
+  opacity: 0.9;
+}
+
+.bar {
+  flex: 1;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.10);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  width: 50%;
+  background: linear-gradient(90deg, #70f2ff 0%, #9df6ff 100%);
+  box-shadow: 0 0 18px rgba(124,236,255,0.25);
+}
+
+#centerPromptWrap {
+  position: fixed;
+  top: 156px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(820px, 70vw);
+  text-align: center;
+}
+
+.aiPrompt {
+  font-size: clamp(28px, 4vw, 56px);
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  color: #c6f8ff;
+  text-shadow:
+    0 0 10px rgba(124,236,255,0.25),
+    0 0 30px rgba(124,236,255,0.18),
+    0 0 60px rgba(124,236,255,0.10);
+}
+
+.countdownWrap {
+  margin-top: 18px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+#countdownText {
+  font-size: 20px;
+  color: #bdefff;
+  margin-bottom: 10px;
+}
+
+.countdownDots {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+
+.countDot {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 2px solid rgba(170, 220, 255, 0.20);
+  background: rgba(6, 10, 18, 0.55);
+  font-weight: 800;
+  font-size: 24px;
+  color: #9edaff;
+  box-shadow: 0 0 14px rgba(124,236,255,0.08);
+}
+
+.countDot.active {
+  border-color: rgba(124,236,255,0.85);
+  box-shadow: 0 0 20px rgba(124,236,255,0.24);
+  color: white;
+}
+
+#rightConsole {
+  position: fixed;
+  right: 18px;
+  top: 146px;
+  width: 340px;
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(10, 14, 26, 0.94) 0%, rgba(8, 10, 22, 0.84) 100%);
+  border: 1px solid rgba(160, 215, 255, 0.20);
+  box-shadow:
+    0 0 30px rgba(124,236,255,0.12),
+    inset 0 0 0 1px rgba(255,255,255,0.03);
+  overflow: hidden;
+}
+
+.consoleHeader {
+  padding: 22px 24px 18px;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #d9fbff;
+  border-bottom: 1px solid rgba(160,215,255,0.12);
+  box-shadow: inset 0 -1px 0 rgba(124,236,255,0.06);
+}
+
+.consoleBody {
+  padding: 20px;
+}
+
+.speedScale {
+  position: relative;
+  height: 370px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 50% 92%, rgba(88, 231, 255, 0.22) 0%, rgba(88, 231, 255, 0.02) 30%, transparent 60%),
+    linear-gradient(180deg, rgba(3, 6, 14, 0.92) 0%, rgba(5, 8, 18, 0.98) 100%);
+  border: 1px solid rgba(154, 218, 255, 0.14);
+  overflow: hidden;
+}
+
+.speedTicks {
+  position: absolute;
+  inset: 28px 40px 28px 54px;
+  background:
+    repeating-linear-gradient(
+      to top,
+      transparent 0 17px,
+      rgba(175, 220, 255, 0.16) 17px 19px
+    );
+  border-left: 2px solid rgba(175, 220, 255, 0.18);
+}
+
+.speedGlow {
+  position: absolute;
+  left: 30px;
+  right: 30px;
+  bottom: 16px;
+  height: 26px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(95,245,255,0.58) 0%, rgba(95,245,255,0.08) 70%, transparent 100%);
+  filter: blur(2px);
+}
+
+.speedHeat {
+  position: absolute;
+  right: 18px;
+  top: 16px;
+  bottom: 16px;
+  width: 10px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ff2b2b 0%, #ff8f00 30%, #ffe600 60%, #55ff85 100%);
+  box-shadow: 0 0 12px rgba(255, 163, 71, 0.25);
+}
+
+#speedCursor {
+  position: absolute;
+  left: 62px;
+  right: 54px;
+  bottom: 32px;
+  height: 16px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #7cecff 0%, #d7ffff 100%);
+  box-shadow: 0 0 18px rgba(124,236,255,0.45);
+}
+
+.consoleInstruction {
+  margin-top: 16px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: rgba(224, 245, 255, 0.92);
+}
+
+.toggleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.miniToggle {
+  min-width: 86px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(154, 218, 255, 0.24);
+  background: rgba(255,255,255,0.06);
+  color: white;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.actionWide {
+  width: 100%;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 18px;
+  padding: 18px 20px;
+  font-size: 20px;
+  font-weight: 800;
+  color: white;
+  cursor: pointer;
+}
+
+.actionWide.danger {
+  background: linear-gradient(180deg, rgba(216, 70, 163, 0.95) 0%, rgba(126, 42, 114, 0.95) 100%);
+  box-shadow: 0 0 20px rgba(223,74,157,0.22);
+}
+
+#actionDeck {
+  position: fixed;
+  left: 18px;
+  bottom: 8px;
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  z-index: 12;
+}
+
+.roundAction {
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  cursor: pointer;
+  color: white;
+}
+
+.roundAction .actionIcon {
+  width: 96px;
+  height: 96px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 46px;
+  font-weight: 900;
+  box-shadow: 0 0 30px rgba(255,255,255,0.12);
+}
+
+.roundAction.turbo .actionIcon {
+  background: radial-gradient(circle at 35% 35%, #ff7748 0%, #eb1d36 62%, #6d0014 100%);
+  box-shadow: 0 0 22px rgba(255,80,80,0.25);
+}
+
+.roundAction.fire .actionIcon {
+  background: radial-gradient(circle at 35% 35%, #ffdd6e 0%, #ffb400 55%, #6c4900 100%);
+  box-shadow: 0 0 22px rgba(255,196,0,0.25);
+}
+
+.roundAction.utility .actionIcon {
+  background: radial-gradient(circle at 35% 35%, #79cfff 0%, #357cff 60%, #0e245c 100%);
+  box-shadow: 0 0 22px rgba(80,140,255,0.24);
+}
+
+.roundAction.smallish .actionIcon {
+  width: 92px;
+  height: 92px;
+  font-size: 40px;
+}
+
+.roundAction .actionText {
+  font-size: 15px;
+  font-weight: 800;
+  text-shadow: 0 0 10px rgba(0,0,0,0.45);
+}
+
+#cockpitFrame {
+  position: fixed;
+  left: 50%;
+  bottom: -2vh;
+  transform: translateX(-50%);
+  width: min(1600px, 118vw);
+  height: min(900px, 92vh);
+  z-index: 8;
+  pointer-events: none;
+}
+
+.cockpitGlass {
+  position: absolute;
+  left: 90px;
+  right: 90px;
+  top: 40px;
+  bottom: 230px;
+  border-radius: 320px 320px 80px 80px;
+  background:
+    linear-gradient(180deg, rgba(100,190,255,0.06), rgba(100,190,255,0.02) 28%, rgba(255,255,255,0.008) 58%, rgba(0,0,0,0)),
+    radial-gradient(circle at 50% 0%, rgba(130,220,255,0.10), transparent 62%);
+  border: 1px solid rgba(130,220,255,0.09);
+  box-shadow:
+    inset 0 1px 0 rgba(180,240,255,0.14),
+    0 0 46px rgba(70,180,255,0.08);
+}
+
+.cockpitGlass::before {
+  content: "";
+  position: absolute;
+  left: 13%;
+  top: 0;
+  bottom: 12%;
+  width: 2px;
+  background: linear-gradient(180deg, rgba(120,220,255,0.20), rgba(120,220,255,0.02));
+  opacity: 0.28;
+}
+
+.cockpitGlass::after {
+  content: "";
+  position: absolute;
+  right: 13%;
+  top: 0;
+  bottom: 12%;
+  width: 2px;
+  background: linear-gradient(180deg, rgba(120,220,255,0.20), rgba(120,220,255,0.02));
+  opacity: 0.28;
+}
+
+.cockpitTopArc {
+  position: absolute;
+  left: 170px;
+  right: 170px;
+  top: 8px;
+  height: 120px;
+  border-radius: 180px 180px 0 0;
+  border-top: 10px solid rgba(110, 230, 255, 0.24);
+  border-left: 10px solid rgba(110, 230, 255, 0.12);
+  border-right: 10px solid rgba(110, 230, 255, 0.12);
+  background: transparent;
+  box-shadow: 0 0 30px rgba(124,236,255,0.06);
+}
+
+.cockpitSide {
+  position: absolute;
+  top: 122px;
+  bottom: 128px;
+  width: 190px;
+  border-radius: 46px;
+  background: linear-gradient(180deg, rgba(14,26,48,0.92), rgba(5,10,22,0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(170,230,255,0.10),
+    0 0 20px rgba(124,236,255,0.04);
+}
+
+.cockpitSide.left {
+  left: 46px;
+  transform: skewY(14deg) rotate(8deg);
+}
+
+.cockpitSide.right {
+  right: 46px;
+  transform: skewY(-14deg) rotate(-8deg);
+}
+
+.cockpitLower {
+  position: absolute;
+  bottom: 10px;
+  width: 330px;
+  height: 170px;
+  border-radius: 40px 40px 90px 90px;
+  background: linear-gradient(180deg, rgba(16,28,50,0.98), rgba(6,12,24,0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(170,230,255,0.10),
+    0 0 24px rgba(124,236,255,0.04);
+}
+
+.cockpitLower.left {
+  left: -20px;
+  transform: rotate(-12deg);
+}
+
+.cockpitLower.right {
+  right: -20px;
+  transform: rotate(12deg);
+}
+
+.cockpitRim {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 78px;
+  height: 310px;
+  border-radius: 340px 340px 40px 40px;
+  background: linear-gradient(180deg, rgba(20,38,66,0.98), rgba(6,12,24,0.99));
+  box-shadow:
+    inset 0 1px 0 rgba(170,230,255,0.16),
+    0 0 34px rgba(124,236,255,0.08);
+}
+
+.cockpitRim::before {
+  content: "";
+  position: absolute;
+  left: 160px;
+  right: 160px;
+  top: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(124,236,255,0.16), rgba(124,236,255,0.04), rgba(124,236,255,0.16));
+  filter: blur(2px);
+}
+
+.dashboardLip {
+  position: absolute;
+  left: 90px;
+  right: 90px;
+  bottom: 34px;
+  height: 70px;
+  border-radius: 44px 44px 18px 18px;
+  background: linear-gradient(180deg, rgba(28,46,78,0.98), rgba(7,12,24,0.98));
+  box-shadow:
+    0 0 22px rgba(124,236,255,0.08),
+    inset 0 1px 0 rgba(180,240,255,0.15);
+}
+
+.dashboardBase {
+  position: absolute;
+  left: 260px;
+  right: 260px;
+  bottom: 96px;
+  height: 30px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(60,170,255,0.22), rgba(120,220,255,0.06), rgba(60,170,255,0.22));
+  filter: blur(2px);
+}
+
+.dashboardPanel {
+  position: absolute;
+  bottom: 120px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(12,22,40,0.98), rgba(6,10,20,0.99));
+  border: 1px solid rgba(124,236,255,0.12);
+  box-shadow:
+    0 0 20px rgba(124,236,255,0.05),
+    inset 0 0 18px rgba(124,236,255,0.03);
+}
+
+.dashboardPanel.left {
+  left: 70px;
+  width: 250px;
+  height: 120px;
+  transform: rotate(-14deg);
+}
+
+.dashboardPanel.center {
+  left: 50%;
+  transform: translateX(-50%);
+  width: 420px;
+  height: 130px;
+}
+
+.dashboardPanel.right {
+  right: 70px;
+  width: 250px;
+  height: 120px;
+  transform: rotate(14deg);
+}
+
+.dashboardLights {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 16px;
+  height: 12px;
+  display: flex;
+  gap: 12px;
+}
+
+.dashboardLights span {
+  flex: 1;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(80,220,255,0.95), rgba(80,220,255,0.20));
+  box-shadow: 0 0 10px rgba(80,220,255,0.20);
+}
+
+.panelScreen {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  top: 38px;
+  bottom: 18px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(40,220,255,0.24), rgba(20,70,120,0.10));
+  border: 1px solid rgba(124,236,255,0.16);
+  box-shadow: inset 0 0 18px rgba(124,236,255,0.08);
+}
+
+.panelScreen.wide {
+  left: 24px;
+  right: 24px;
+  top: 18px;
+  height: 58px;
+  bottom: auto;
+}
+
+.panelButtons {
+  position: absolute;
+  left: 40px;
+  right: 40px;
+  bottom: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+}
+
+.panelButtons span {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(90,230,255,0.85);
+  box-shadow: 0 0 10px rgba(90,230,255,0.20);
+}
+
+.lowerConsole {
+  position: absolute;
+  bottom: 108px;
+  width: 190px;
+  height: 88px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(10,18,34,0.98), rgba(4,8,18,0.98));
+  border: 1px solid rgba(124,236,255,0.10);
+  box-shadow:
+    0 0 16px rgba(124,236,255,0.04),
+    inset 0 0 16px rgba(124,236,255,0.03);
+}
+
+.lowerConsole.left {
+  left: 170px;
+  transform: rotate(-12deg);
+}
+
+.lowerConsole.right {
+  right: 170px;
+  transform: rotate(12deg);
+}
+
+.lowerConsole::before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 30px;
+  height: 8px;
+  border-radius: 999px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(90,230,255,0.95) 0 28px,
+    transparent 28px 40px
+  );
+  box-shadow: 0 0 10px rgba(90,230,255,0.18);
+}
+
+
+#steerGuide {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: min(1320px, 94vw);
+  height: min(720px, 70vh);
+  z-index: 9;
+  pointer-events: none;
+}
+
+.wheelOuterGlow {
+  position: absolute;
+  left: 50%;
+  top: 63%;
+  width: 430px;
+  height: 430px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(60,212,255,0.20) 0%, rgba(60,212,255,0.05) 46%, transparent 75%);
+  filter: blur(8px);
+}
+
+#steerGuide.locked .wheel {
+  border-color: rgba(104,239,255,0.98);
+  box-shadow: 0 0 34px rgba(84,220,255,0.30);
+}
+
+#steerGuide .wheel {
+  position: absolute;
+  left: 50%;
+  top: 63%;
+  width: 350px;
+  height: 350px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  border: 10px solid rgba(92,221,255,0.76);
+  background: radial-gradient(circle at 50% 50%, rgba(14,28,52,0.34), rgba(0,0,0,0));
+  box-shadow:
+    0 0 28px rgba(84,220,255,0.18),
+    inset 0 0 20px rgba(255,255,255,0.03);
+  transition: transform 0.12s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+#steerGuide .wheelInner {
+  position: absolute;
+  left: 50%;
+  top: 63%;
+  width: 196px;
+  height: 196px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  border: 5px solid rgba(86,212,255,0.24);
+}
+
+.wheelCore {
+  position: absolute;
+  left: 50%;
+  top: 63%;
+  width: 84px;
+  height: 84px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: radial-gradient(circle at 40% 35%, rgba(110,238,255,0.50), rgba(20,34,62,0.96));
+  border: 1px solid rgba(155,232,255,0.26);
+  box-shadow: 0 0 18px rgba(84,220,255,0.16);
+}
+
+.wheelSpoke {
+  position: absolute;
+  background: linear-gradient(180deg, rgba(84,220,255,0.95), rgba(21,87,116,0.35));
+  border-radius: 999px;
+  box-shadow: 0 0 14px rgba(84,220,255,0.22);
+}
+
+.spokeTop {
+  left: 50%;
+  top: 210px;
+  width: 14px;
+  height: 132px;
+  transform: translateX(-50%);
+}
+
+.gripPod {
+  display: none;
+  position: absolute;
+  top: 330px;
+  width: 126px;
+  height: 36px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(84,220,255,0.42), rgba(40,110,150,0.22));
+  border: 2px solid rgba(255,100,130,0.88);
+  box-shadow: 0 0 18px rgba(255,85,113,0.18);
+}
+
+.gripPod.left {
+  left: 420px;
+  top: 334px;
+  transform: rotate(-34deg);
+}
+
+.gripPod.right {
+  right: 420px;
+  top: 334px;
+  transform: rotate(34deg);
+}
+
+.connectorArm.left {
+  left: 525px;
+  top: 372px;
+  width: 120px;
+  height: 12px;
+  transform: rotate(34deg);
+  transform-origin: left center;
+  border-radius: 999px;
+}
+
+.connectorArm.right {
+  right: 525px;
+  top: 372px;
+  width: 120px;
+  height: 12px;
+  transform: rotate(-34deg);
+  transform-origin: right center;
+  border-radius: 999px;
+}
+
+.gripSlot {
+  position: absolute;
+  top: 330px;
+  width: 126px;
+  height: 36px;
+  border-radius: 999px;
+  border: 2px solid rgba(154,232,255,0.18);
+  background: rgba(255,255,255,0.02);
+  transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.gripSlot.left {
+  left: 438px;
+  transform: rotate(-28deg);
+}
+
+.gripSlot.right {
+  right: 438px;
+  transform: rotate(28deg);
+}
+
+.gripSlot.idle {
+  background: rgba(255,255,255,0.02);
+  border-color: rgba(154,232,255,0.18);
+}
+
+.gripSlot.active {
+  background: rgba(93,255,209,0.18);
+  border-color: rgba(93,255,209,0.95);
+  box-shadow: 0 0 20px rgba(93,255,209,0.24);
+}
+
+.gripSlot.missing {
+  background: rgba(255,85,113,0.14);
+  border-color: rgba(255,85,113,0.88);
+  box-shadow: 0 0 20px rgba(255,85,113,0.18);
+}
+
+.handShell {
+  position: absolute;
+  top: 292px;
+  width: 178px;
+  height: 240px;
+  opacity: 0.96;
+  transition: transform 0.12s ease, filter 0.12s ease, opacity 0.12s ease;
+}
+
+.leftHandShell {
+  left: 332px;
+  transform: rotate(20deg);
+}
+
+.rightHandShell {
+  right: 332px;
+  transform: rotate(-20deg);
+}
+
+.armGlow {
+  position: absolute;
+  inset: 56px 34px 18px 34px;
+  border-radius: 90px;
+  background: linear-gradient(180deg, rgba(64,180,255,0.24), rgba(18,40,94,0.12));
+  filter: blur(10px);
+}
+
+.handPalm {
+  position: absolute;
+  left: 36px;
+  right: 36px;
+  top: 42px;
+  bottom: 30px;
+  border-radius: 85px 85px 56px 56px;
+  background: linear-gradient(180deg, rgba(15,28,48,0.96), rgba(5,12,24,0.96));
+  border: 2px solid rgba(110,238,255,0.22);
+  box-shadow:
+    0 0 24px rgba(84,220,255,0.08),
+    inset 0 0 20px rgba(124,236,255,0.04);
+}
+
+.handThumb {
+  position: absolute;
+  width: 54px;
+  height: 92px;
+  top: 74px;
+  border-radius: 40px;
+  background: linear-gradient(180deg, rgba(15,28,48,0.95), rgba(5,12,24,0.95));
+  border: 2px solid rgba(110,238,255,0.20);
+}
+
+.leftHandShell .handThumb {
+  right: 18px;
+  transform: rotate(32deg);
+}
+
+.rightHandShell .handThumb {
+  left: 18px;
+  transform: rotate(-32deg);
+}
+
+.handShell.active .handPalm,
+.handShell.active .handThumb {
+  border-color: rgba(93,255,209,0.95);
+  box-shadow: 0 0 22px rgba(93,255,209,0.18);
+}
+
+#steerGuide .guideText {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.42);
+  border: 1px solid rgba(163,226,255,0.18);
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 0 16px rgba(84,220,255,0.08);
 }
 
 #debugWrap {
   position: fixed;
-  right: 12px;
-  top: 12px;
-  z-index: 20;
-  width: 320px;
-  background: rgba(0,0,0,0.4);
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 14px;
-  padding: 10px;
-  backdrop-filter: blur(8px);
+  left: 18px;
+  bottom: 130px;
+  top: auto;
+  right: auto;
+  z-index: 30;
+  width: 238px;
+  background: rgba(4, 8, 16, 0.82);
+  border: 1px solid rgba(160,215,255,0.20);
+  border-radius: 18px;
+  padding: 8px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 0 22px rgba(124,236,255,0.12);
 }
 
-#debugWrap.hidden { display: none; }
+#debugWrap.hidden {
+  display: none;
+}
 
 #webcam, #debugCanvas {
   width: 100%;
   height: auto;
-  border-radius: 10px;
   display: block;
+  border-radius: 12px;
 }
 
 #debugCanvas {
   margin-top: 8px;
 }
 
-.bar{
-  width: 160px;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.10);
-  border: 1px solid rgba(255,255,255,0.14);
-  overflow: hidden;
-}
-.fill{
-  height: 100%;
-  width: 50%;
-  background: rgba(255,255,255,0.75);
-  transform: translateX(0%);
+@media (max-width: 1400px) {
+  #rightConsole {
+    transform: scale(0.9);
+    transform-origin: top right;
+  }
 }
 
-#steerGuide{
-  position: fixed;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%);
-  width: 260px;
-  height: 180px;
-  z-index: 9;
-  pointer-events: none;
-  opacity: 0.65;
-}
-#steerGuide .wheel{
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 170px;
-  height: 170px;
-  transform: translate(-50%,-50%);
-  border-radius: 999px;
-  border: 6px solid rgba(255,255,255,0.28);
-  box-shadow: 0 0 40px rgba(255,255,255,0.06);
-}
-#steerGuide .hand{
-  position: absolute;
-  width: 52px;
-  height: 18px;
-  border-radius: 999px;
-  background: rgba(124,255,200,0.35);
-  border: 1px solid rgba(124,255,200,0.45);
-  top: 64px;
-}
-#steerGuide .hand.left{ left: 36px; transform: rotate(-22deg); }
-#steerGuide .hand.right{ right: 36px; transform: rotate(22deg); }
+@media (max-width: 1100px) {
+  #rightConsole {
+    transform: scale(0.82);
+    transform-origin: top right;
+  }
 
-#steerGuide .guideText{
-  position: absolute;
-  left: 50%;
-  bottom: 0px;
-  transform: translateX(-50%);
-  background: rgba(0,0,0,0.35);
-  border: 1px solid rgba(255,255,255,0.14);
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  backdrop-filter: blur(6px);
-}
+  #cockpitFrame,
+  #steerGuide {
+    transform: translateX(-50%) scale(0.9);
+    transform-origin: bottom center;
+  }
 
-button{
-  font-weight:600;
+  #leftPanel {
+    transform: scale(0.9);
+    transform-origin: top left;
+  }
 }

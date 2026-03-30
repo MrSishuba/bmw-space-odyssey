@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Space Rover — Hand Steering</title>
 
-  <!-- Three.js via import map (CDN) -->
   <script type="importmap">
     {
       "imports": {
@@ -15,74 +14,185 @@
     }
   </script>
 
-  <!-- MediaPipe Tasks Vision (Hand Landmarker) -->
-  <!-- CDN approach is documented by Google AI Edge for web usage -->
- 
-
   <link rel="stylesheet" href="./style.css" />
 </head>
-
 <body>
-  <div id="ui">
-    <div class="row">
-      <div class="title">SPACE ROVER — HAND STEERING</div>
-      <div id="status" class="pill">Loading…</div>
+  <canvas id="gameCanvas"></canvas>
+
+  <div id="uiShell">
+    <div id="topBar">
+      <div class="brand">SPACE ROVER — HAND STEERING</div>
+
+      <div class="topControls">
+        <button id="btnStart" class="neoBtn">Start</button>
+        <button id="btnCalibrate" class="neoBtn">Calibrate</button>
+        <label class="neoToggle">
+          <input id="chkDebug" type="checkbox" />
+          <span>Show hand debug</span>
+        </label>
+        <button id="btnResetGame" class="neoBtn secondary">Reset</button>
+      </div>
+
+      <div id="status" class="statusPill">Loading…</div>
     </div>
 
-    <div class="row">
-      <button id="btnStart">Start</button>
-      <button id="btnCalibrate">Calibrate</button>
-      <label class="toggle">
-        <input id="chkDebug" type="checkbox" />
-        <span>Show hand debug</span>
-      </label>
-    </div>
+    <div id="leftPanel">
+      <div class="hintRow">
+        <div class="hintPill">Steer: rotate wheel</div>
+        <div class="hintPill">Speed: use right-side slider</div>
+        <div class="hintPill">Goal: checkpoints → finish</div>
+      </div>
 
-    <div class="row small">
-      <div class="pill">Steer: move hand left/right</div>
-      <div class="pill">Speed: move hand up/down</div>
-      <div class="pill">Goal: hit checkpoints → finish</div>
-    </div>
+      <div id="hud" class="telemetryCard">Time: -- | Checkpoints: 0/5</div>
 
-    <div class="row small">
-      <div id="hud" class="hud">Time: -- | Checkpoints: 0/5</div>
-    </div>
-
-    <div class="row">
-        <div class="hud" style="min-width:340px">
-            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <div class="pill">Steer</div>
-            <div class="bar"><div id="barSteer" class="fill"></div></div>
-            <div id="txtSteer" class="pill">0.00</div>
-            </div>
-            <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap;">
-            <div class="pill">Speed</div>
-            <div class="bar"><div id="barThrot" class="fill"></div></div>
-            <div id="txtThrot" class="pill">0.00</div>
-            </div>
-            <div class="small" style="margin-top:8px;opacity:0.9">
-            Put your hands inside the on-screen wheel. Move left/right to steer, up/down to speed up/slow down.
-            </div>
+      <div class="telemetryCard">
+        <div class="telemetryLine">
+          <span class="telemetryLabel">Steer</span>
+          <div class="bar"><div id="barSteer" class="fill"></div></div>
+          <span id="txtSteer" class="telemetryValue">0.00</span>
         </div>
+
+        <div class="telemetryLine">
+          <span class="telemetryLabel">Speed</span>
+          <div class="bar"><div id="barThrot" class="fill"></div></div>
+          <span id="txtThrot" class="telemetryValue">0.00</span>
+        </div>
+
+        <div class="telemetryText">
+          Steering is controlled by the wheel only. Speed and rover state will be handled from the right-side console.
+        </div>
+      </div>
+    </div>
+
+    <div id="centerPromptWrap">
+      <div id="aiPrompt" class="aiPrompt">PRESS TO ENGAGE SPEED…</div>
+      <div id="countdownWrap" class="countdownWrap hidden">
+        <div id="countdownText">Engaging rover in… 3</div>
+        <div class="countdownDots">
+          <span class="countDot active">3</span>
+          <span class="countDot">2</span>
+          <span class="countDot">1</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="rightConsole">
+      <div class="consoleHeader">ENGAGE SPEED</div>
+
+      <div class="consoleBody">
+        <div class="speedScale">
+          <div class="speedTicks"></div>
+          <div id="speedCursor"></div>
+          <div class="speedGlow"></div>
+          <div class="speedHeat"></div>
+        </div>
+
+        <div class="consoleInstruction">
+          Set the rover speed here before engaging movement.
+        </div>
+
+        <div class="toggleRow">
+          <span>Toggle Reverse</span>
+          <button id="btnToggleReverse" class="miniToggle">OFF</button>
+        </div>
+
+        <button id="btnShutdown" class="actionWide danger">Shutdown Rover</button>
+      </div>
+    </div>
+
+    <div id="actionDeck">
+      <button id="btnTurbo" class="roundAction turbo">
+        <span class="actionIcon">🔥</span>
+        <span class="actionText">Turbo Boost</span>
+      </button>
+
+      <button id="btnFire" class="roundAction fire">
+        <span class="actionIcon">✦</span>
+        <span class="actionText">Fire Targets</span>
+      </button>
+
+      <button id="btnRespawn" class="roundAction utility smallish">
+        <span class="actionIcon">↺</span>
+        <span class="actionText">Respawn</span>
+      </button>
+    </div>
+  </div>
+
+<div id="cockpitFrame" aria-hidden="true">
+  <div class="cockpitGlass"></div>
+  <div class="cockpitTopArc"></div>
+
+  <div class="cockpitSide left"></div>
+  <div class="cockpitSide right"></div>
+
+  <div class="cockpitLower left"></div>
+  <div class="cockpitLower right"></div>
+
+  <div class="cockpitRim"></div>
+  <div class="dashboardLip"></div>
+  <div class="dashboardBase"></div>
+
+  <div class="dashboardPanel left">
+    <div class="dashboardLights">
+      <span></span><span></span><span></span>
+    </div>
+    <div class="panelScreen"></div>
+  </div>
+
+  <div class="dashboardPanel center">
+    <div class="panelScreen wide"></div>
+    <div class="panelButtons">
+      <span></span><span></span><span></span><span></span>
+    </div>
+  </div>
+
+  <div class="dashboardPanel right">
+    <div class="dashboardLights">
+      <span></span><span></span><span></span>
+    </div>
+    <div class="panelScreen"></div>
+  </div>
+
+  <div class="lowerConsole left"></div>
+  <div class="lowerConsole right"></div>
 </div>
 
 <div id="steerGuide" aria-hidden="true">
+  <div class="wheelOuterGlow"></div>
   <div class="wheel"></div>
-  <div class="hand left"></div>
-  <div class="hand right"></div>
-  <div class="guideText">Hold hands here</div>
-</div>
+  <div class="wheelInner"></div>
+  <div class="wheelCore"></div>
 
+  <div class="wheelSpoke spokeTop"></div>
 
+  <div class="gripPod left"></div>
+  <div class="gripPod right"></div>
+
+  <div class="connectorArm left"></div>
+  <div class="connectorArm right"></div>
+
+  <div id="leftHandVisual" class="handShell leftHandShell">
+    <div class="armGlow"></div>
+    <div class="handPalm"></div>
+    <div class="handThumb"></div>
   </div>
 
-  <!-- Debug overlay for the webcam feed + landmarks (optional) -->
+  <div id="rightHandVisual" class="handShell rightHandShell">
+    <div class="armGlow"></div>
+    <div class="handPalm"></div>
+    <div class="handThumb"></div>
+  </div>
+
+  <div id="slotLeft" class="gripSlot left idle"></div>
+  <div id="slotRight" class="gripSlot right idle"></div>
+
+  <div id="guideStatus" class="guideText">Show both hands</div>
+</div>
+
   <div id="debugWrap" class="hidden">
     <video id="webcam" autoplay playsinline></video>
     <canvas id="debugCanvas"></canvas>
   </div>
-
-  <canvas id="gameCanvas"></canvas>
 
   <script type="module" src="./main.js"></script>
 </body>
