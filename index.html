@@ -26,10 +26,12 @@
       <div class="topControls">
         <button id="btnStart" class="neoBtn">Start</button>
         <button id="btnCalibrate" class="neoBtn">Calibrate</button>
+
         <label class="neoToggle">
           <input id="chkDebug" type="checkbox" />
           <span>Show hand debug</span>
         </label>
+
         <button id="btnResetGame" class="neoBtn secondary">Reset</button>
       </div>
 
@@ -39,8 +41,8 @@
     <div id="leftPanel">
       <div class="hintRow">
         <div class="hintPill">Steer: rotate wheel</div>
-        <div class="hintPill">Speed: use right-side slider</div>
-        <div class="hintPill">Goal: checkpoints → finish</div>
+        <div class="hintPill">Throttle: right cockpit console</div>
+        <div class="hintPill">Voice: drive / stop / faster / slower / turbo / fire</div>
       </div>
 
       <div id="hud" class="telemetryCard">Time: -- | Checkpoints: 0/5</div>
@@ -59,13 +61,14 @@
         </div>
 
         <div class="telemetryText">
-          Steering is controlled by the wheel only. Speed and rover state will be handled from the right-side console.
+          Cockpit systems are embedded into the dashboard. Drive with hands, regulate speed from the right console, and engage combat support from the center controls.
         </div>
       </div>
     </div>
 
     <div id="centerPromptWrap">
       <div id="aiPrompt" class="aiPrompt">PRESS TO ENGAGE SPEED…</div>
+
       <div id="countdownWrap" class="countdownWrap hidden">
         <div id="countdownText">Engaging rover in… 3</div>
         <div class="countdownDots">
@@ -75,119 +78,216 @@
         </div>
       </div>
     </div>
+  </div>
 
-    <div id="rightConsole">
-      <div class="consoleHeader">ENGAGE SPEED</div>
+  <div id="cockpitFrame" aria-hidden="true">
+    <div class="cockpitGlass"></div>
+    <div class="cockpitTopArc"></div>
 
-      <div class="consoleBody">
-        <div class="speedScale">
+    <div class="cockpitSide left"></div>
+    <div class="cockpitSide right"></div>
+
+    <div class="cockpitLower left"></div>
+    <div class="cockpitLower right"></div>
+
+    <div class="cockpitRim"></div>
+    <div class="dashboardLip"></div>
+    <div class="dashboardBase"></div>
+
+    <!-- LEFT PANEL -->
+    <div class="dashboardPanel left leftConsolePanel">
+      <div class="dashboardPanelHeader">
+        <span class="panelHeaderLabel">SYSTEM STATUS</span>
+        <div class="dashboardLights">
+          <span class="lightDot blue"></span>
+          <span class="lightDot blue"></span>
+          <span class="lightDot blue"></span>
+        </div>
+      </div>
+
+      <div class="panelScreen leftStatusScreen">
+        <div class="statusGrid"></div>
+
+        <div class="statusRadar">
+          <div class="statusRadarSweep"></div>
+          <div class="statusRadarRing ring1"></div>
+          <div class="statusRadarRing ring2"></div>
+          <div class="statusRadarBlip statusBlipA"></div>
+          <div class="statusRadarBlip statusBlipB"></div>
+          <div class="statusRadarBlip statusBlipC"></div>
+        </div>
+
+        <div class="statusBars">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+
+      <div class="subPanelButtons">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </div>
+
+    <!-- CENTER PANEL -->
+    <div class="dashboardPanel center centerConsolePanel">
+      <div class="dashboardPanelHeader">
+        <span class="panelHeaderLabel">NAV / TARGETING</span>
+        <div class="dashboardLights">
+          <span class="lightDot blue"></span>
+          <span class="lightDot blue"></span>
+          <span class="lightDot red"></span>
+        </div>
+      </div>
+
+      <div class="panelScreen wide navScreen">
+        <div class="navGrid"></div>
+        <div class="navSweep"></div>
+
+        <div class="navBlip blipA"></div>
+        <div class="navBlip blipB"></div>
+        <div class="navBlip blipC"></div>
+
+        <div class="checkpointStrip">
+          <span class="checkpointDot"></span>
+          <span class="checkpointDot"></span>
+          <span class="checkpointDot"></span>
+          <span class="checkpointDot"></span>
+          <span class="checkpointDot"></span>
+        </div>
+      </div>
+
+      <div class="panelButtons panelActionButtons">
+        <button id="btnTurbo" class="panelActionBtn turboBtn" type="button">
+          <span class="panelActionLabel">TURBO</span>
+        </button>
+
+        <button id="btnFire" class="panelActionBtn fireBtn" type="button">
+          <span class="panelActionLabel">FIRE</span>
+        </button>
+
+        <button id="btnRespawn" class="panelActionBtn utilityBtn" type="button">
+          <span class="panelActionLabel">RESPAWN</span>
+        </button>
+      </div>
+
+      <div class="centerPanelFooter">
+        <div class="footerBar left"></div>
+        <div class="footerBar mid"></div>
+        <div class="footerBar right"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="dashboardPanel right rightConsolePanel">
+      <div class="dashboardPanelHeader">
+        <span class="panelHeaderLabel">THROTTLE CONTROL</span>
+        <div class="dashboardLights">
+          <span class="lightDot amber"></span>
+          <span class="lightDot amber"></span>
+          <span class="lightDot red"></span>
+        </div>
+      </div>
+
+      <div class="rightConsoleWrap">
+        <div class="consoleModeRow">
+          <div class="consoleReadout">
+            <span class="readoutLabel">MODE</span>
+            <span id="modeReadout" class="readoutValue">HANDS</span>
+          </div>
+
+          <div class="consoleReadout">
+            <span class="readoutLabel">THROTTLE</span>
+            <span id="speedReadout" class="readoutValue">35%</span>
+          </div>
+        </div>
+
+        <div id="speedScale" class="speedScale">
+          <div class="speedRailGlow"></div>
           <div class="speedTicks"></div>
-          <div id="speedCursor"></div>
+          <div class="speedBands"></div>
+
+          <div id="speedCursor">
+            <div class="cursorCore"></div>
+          </div>
+
+          <div id="throttleHandle" class="throttleHandle">
+            <div class="throttleStem"></div>
+            <div class="throttleGrip">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+
           <div class="speedGlow"></div>
           <div class="speedHeat"></div>
         </div>
 
         <div class="consoleInstruction">
-          Set the rover speed here before engaging movement.
+          Set throttle before engagement. This console controls rover speed state and reflects voice or keyboard speed changes.
         </div>
 
         <div class="toggleRow">
           <span>Toggle Reverse</span>
-          <button id="btnToggleReverse" class="miniToggle">OFF</button>
+          <button id="btnToggleReverse" class="miniToggle" type="button">OFF</button>
         </div>
 
-        <button id="btnShutdown" class="actionWide danger">Shutdown Rover</button>
+        <button id="btnShutdown" class="actionWide danger" type="button">Shutdown Rover</button>
       </div>
     </div>
 
-    <div id="actionDeck">
-      <button id="btnTurbo" class="roundAction turbo">
-        <span class="actionIcon">🔥</span>
-        <span class="actionText">Turbo Boost</span>
-      </button>
+    <!-- LOWER DECORATIVE SUBCONSOLES -->
+    <div class="lowerConsole left">
+      <div class="lowerConsoleBars"></div>
+    </div>
 
-      <button id="btnFire" class="roundAction fire">
-        <span class="actionIcon">✦</span>
-        <span class="actionText">Fire Targets</span>
-      </button>
-
-      <button id="btnRespawn" class="roundAction utility smallish">
-        <span class="actionIcon">↺</span>
-        <span class="actionText">Respawn</span>
-      </button>
+    <div class="lowerConsole right">
+      <div class="lowerConsoleBars"></div>
     </div>
   </div>
 
-<div id="cockpitFrame" aria-hidden="true">
-  <div class="cockpitGlass"></div>
-  <div class="cockpitTopArc"></div>
+  <div id="steerGuide" aria-hidden="true">
+    <div class="wheelOuterGlow"></div>
+    <div class="wheel"></div>
+    <div class="wheelInner"></div>
+    <div class="wheelCore"></div>
 
-  <div class="cockpitSide left"></div>
-  <div class="cockpitSide right"></div>
+    <div class="wheelSpoke spokeTop"></div>
 
-  <div class="cockpitLower left"></div>
-  <div class="cockpitLower right"></div>
+    <div class="gripPod left"></div>
+    <div class="gripPod right"></div>
 
-  <div class="cockpitRim"></div>
-  <div class="dashboardLip"></div>
-  <div class="dashboardBase"></div>
+    <div class="connectorArm left"></div>
+    <div class="connectorArm right"></div>
 
-  <div class="dashboardPanel left">
-    <div class="dashboardLights">
-      <span></span><span></span><span></span>
+    <div id="leftHandVisual" class="handShell leftHandShell">
+      <div class="armGlow"></div>
+      <div class="handPalm"></div>
+      <div class="handThumb"></div>
     </div>
-    <div class="panelScreen"></div>
+
+    <div id="rightHandVisual" class="handShell rightHandShell">
+      <div class="armGlow"></div>
+      <div class="handPalm"></div>
+      <div class="handThumb"></div>
+    </div>
+
+    <div id="slotLeft" class="gripSlot left idle"></div>
+    <div id="slotRight" class="gripSlot right idle"></div>
+
+    <div id="guideStatus" class="guideText">Show both hands</div>
   </div>
 
-  <div class="dashboardPanel center">
-    <div class="panelScreen wide"></div>
-    <div class="panelButtons">
-      <span></span><span></span><span></span><span></span>
+  <div id="missionOverlay" class="missionOverlay hidden">
+    <div class="missionCard">
+      <div id="missionTitle" class="missionTitle">MISSION COMPLETE</div>
+      <div id="missionSubtitle" class="missionSubtitle">Rover run finished.</div>
+      <button id="btnMissionRestart" class="neoBtn" type="button">Restart Mission</button>
     </div>
   </div>
-
-  <div class="dashboardPanel right">
-    <div class="dashboardLights">
-      <span></span><span></span><span></span>
-    </div>
-    <div class="panelScreen"></div>
-  </div>
-
-  <div class="lowerConsole left"></div>
-  <div class="lowerConsole right"></div>
-</div>
-
-<div id="steerGuide" aria-hidden="true">
-  <div class="wheelOuterGlow"></div>
-  <div class="wheel"></div>
-  <div class="wheelInner"></div>
-  <div class="wheelCore"></div>
-
-  <div class="wheelSpoke spokeTop"></div>
-
-  <div class="gripPod left"></div>
-  <div class="gripPod right"></div>
-
-  <div class="connectorArm left"></div>
-  <div class="connectorArm right"></div>
-
-  <div id="leftHandVisual" class="handShell leftHandShell">
-    <div class="armGlow"></div>
-    <div class="handPalm"></div>
-    <div class="handThumb"></div>
-  </div>
-
-  <div id="rightHandVisual" class="handShell rightHandShell">
-    <div class="armGlow"></div>
-    <div class="handPalm"></div>
-    <div class="handThumb"></div>
-  </div>
-
-  <div id="slotLeft" class="gripSlot left idle"></div>
-  <div id="slotRight" class="gripSlot right idle"></div>
-
-  <div id="guideStatus" class="guideText">Show both hands</div>
-</div>
 
   <div id="debugWrap" class="hidden">
     <video id="webcam" autoplay playsinline></video>
